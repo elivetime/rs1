@@ -33,13 +33,14 @@ export async function decide(form: FormData) {
   if (!id || !next) return;
 
   const allowedFrom = next === 'cancelled' ? ['approved', 'pending'] : ['pending'];
-  const { data: r } = await db()
+  let update = db()
     .from('meeting_requests')
     .update({ status: next, meeting_link: link || null, mgmt_note: note || null, decided_at: new Date().toISOString() })
     .eq('id', id)
-    .in('status', allowedFrom)
-    .select('*')
-    .maybeSingle<MeetingRequest>();
+    .in('status', allowedFrom);
+  // A request left pending past its start time can only be declined or cancelled, never confirmed.
+  if (next === 'approved') update = update.gt('start_at', new Date().toISOString());
+  const { data: r } = await update.select('*').maybeSingle<MeetingRequest>();
 
   if (r) {
     const when = fmtWhen(r.start_at, r.visitor_tz || config.tz);

@@ -65,6 +65,7 @@ export default async function Admin() {
     db().from('meeting_requests').select('*').eq('status', 'approved').gte('start_at', nowIso).order('start_at').returns<MeetingRequest[]>(),
     db().from('meeting_requests').select('*').in('status', ['declined', 'cancelled']).order('decided_at', { ascending: false }).limit(10).returns<MeetingRequest[]>(),
   ]);
+  const failed = Boolean(pending.error || upcoming.error || recent.error);
 
   return (
     <main className="wrap">
@@ -72,6 +73,11 @@ export default async function Admin() {
         <a className="brand" href="/">AIUniverse.one · Management</a>
         <form action={logout}><button className="btn" type="submit">Sign out</button></form>
       </div>
+      {failed && (
+        <div className="alert err" role="alert">
+          Could not load requests from the database. The lists below may be incomplete. Reload to try again.
+        </div>
+      )}
       <section className="card">
         <div className="bar"><h2>Waiting for approval</h2><span className="pill pending">{pending.data?.length ?? 0}</span></div>
         <p className="muted small" style={{ margin: 0 }}>Times shown in {config.tz.replace(/_/g, ' ')}. A pending request holds its slot until you decline it.</p>

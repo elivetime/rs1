@@ -1,7 +1,7 @@
 import type { MeetingRequest } from './db';
 
 const stamp = (d: Date) => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
-const escapeIcs = (s: string) => s.replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/[,;]/g, (c) => '\\' + c);
+const escapeIcs = (s: string) => s.replace(/\r\n?/g, '\n').replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/[,;]/g, (c) => '\\' + c);
 
 export function buildIcs(r: MeetingRequest, siteUrl: string): string {
   const start = new Date(r.start_at);

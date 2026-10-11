@@ -9,6 +9,15 @@ export const dynamic = 'force-dynamic';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const clip = (v: unknown, n: number) => (typeof v === 'string' ? v.trim().slice(0, n) : '');
+const validTz = (tz: string) => {
+  if (!tz) return false;
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: tz });
+    return true;
+  } catch {
+    return false;
+  }
+};
 
 export async function POST(req: Request) {
   let body: Record<string, unknown>;
@@ -26,7 +35,8 @@ export async function POST(req: Request) {
   const role = clip(body.role, 120);
   const phone = clip(body.phone, 40);
   const notes = clip(body.notes, 2000);
-  const visitorTz = clip(body.visitorTz, 64);
+  const rawTz = clip(body.visitorTz, 64);
+  const visitorTz = validTz(rawTz) ? rawTz : '';
   const format = body.format === 'phone' ? 'phone' : 'zoom';
   const startAt = clip(body.startAt, 40);
 
