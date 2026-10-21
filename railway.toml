@@ -1,0 +1,11 @@
+# aiuniverse.rsvp — Next.js 15 at repo root (Railway Root Directory = /).
+# Dashboard → Settings → Config-as-code → railway.toml
+[build]
+buildCommand = "npm ci && npm run build"
+
+[deploy]
+startCommand = "npm run start"
+healthcheckPath = "/"
+healthcheckTimeout = 180
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 5

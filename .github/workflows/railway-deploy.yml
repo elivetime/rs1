@@ -1,0 +1,133 @@
+name: Deploy aiuniverse.rsvp to Railway
+
+# Modeled on elivetime/ai-stream-clips railway-deploy.yml (simplified for root Next 15 app).
+# Secrets: RAILWAY_TOKEN, RAILWAY_PROJECT_ID, RAILWAY_SERVICE_ID (Next web service UUID).
+# Optional: VERCEL_TOKEN + VERCEL_ORG_ID + VERCEL_PROJECT_ID to sync production env before deploy.
+# Optional: DEPLOY_BASE_URL (https://aiuniverse.rsvp after Cloudflare origin cutover).
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "lib/**"
+      - "package.json"
+      - "package-lock.json"
+      - "next.config.mjs"
+      - "railway.toml"
+      - "scripts/verify-railway-staging-after-deploy.sh"
+      - ".github/workflows/railway-deploy.yml"
+
+concurrency:
+  group: railway-deploy-rs1
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Deploy to Railway
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      STAGING_URL: ${{ secrets.STAGING_URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Typecheck and build (gate)
+        run: |
+          npm ci
+          npm run typecheck
+          npm run build
+
+      - name: Install CLIs
+        run: npm install -g vercel@59.1.3 @railway/cli@4.10.0 --no-audit --no-fund
+
+      - name: Sync Vercel production env to Railway
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VERCEL_PROJECT_NAME: ${{ secrets.VERCEL_PROJECT_NAME }}
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
+        run: |
+          set -euo pipefail
+          if [ -z "${VERCEL_TOKEN:-}" ] || [ -z "${RAILWAY_TOKEN:-}" ] || [ -z "${VERCEL_PROJECT_ID:-}" ]; then
+            echo "Skipping Vercel→Railway env sync (set VERCEL_TOKEN, VERCEL_PROJECT_ID, RAILWAY_TOKEN). Copy vars from Vercel dashboard manually — see docs/RAILWAY-DEPLOY.md."
+            exit 0
+          fi
+          export VERCEL_ORG_ID="${VERCEL_ORG_ID:-team_JkGZoOPYOANaDwHjcm97F8R1}"
+          vercel link --yes --scope aiu2 \
+            --project "${VERCEL_PROJECT_NAME:-rs1-mdc2}" \
+            --token "$VERCEL_TOKEN"
+          python3 - <<'PY'
+          import json, os
+          os.makedirs(".vercel", exist_ok=True)
+          with open(".vercel/project.json", "w") as f:
+              json.dump({
+                  "projectId": os.environ["VERCEL_PROJECT_ID"],
+                  "orgId": os.environ["VERCEL_ORG_ID"],
+              }, f)
+          PY
+          vercel pull --yes --environment=production --token "$VERCEL_TOKEN"
+          ENV_FILE=""
+          for candidate in .vercel/.env.production.local .env.production.local; do
+            [ -f "$candidate" ] && ENV_FILE="$candidate" && break
+          done
+          [ -n "$ENV_FILE" ] || { echo "No env file after vercel pull"; exit 1; }
+          if [ -z "${RAILWAY_SERVICE_ID:-}" ]; then
+            echo "::error::RAILWAY_SERVICE_ID required for env sync"
+            exit 1
+          fi
+          node scripts/railway-sync-vercel-env.mjs "$ENV_FILE" "${RAILWAY_SERVICE_ID}"
+
+      - name: Deploy to Railway
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
+          RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
+        run: |
+          set -euo pipefail
+          if [ -z "${RAILWAY_TOKEN:-}" ]; then
+            echo "RAILWAY_TOKEN not set — skipping railway up (configure secrets to enable deploy)."
+            exit 0
+          fi
+          if [ -z "${RAILWAY_PROJECT_ID:-}" ] || [ -z "${RAILWAY_SERVICE_ID:-}" ]; then
+            echo "::error::Set RAILWAY_PROJECT_ID and RAILWAY_SERVICE_ID in GitHub Actions secrets. See docs/RAILWAY-DEPLOY.md."
+            exit 1
+          fi
+          export RAILWAY_PROJECT_ID
+          RAILWAY_UP_LOG="${RUNNER_TEMP}/railway-up.log"
+          railway up --detach --service "${RAILWAY_SERVICE_ID}" 2>&1 | tee "${RAILWAY_UP_LOG}"
+          DEPLOYMENT_ID="$(grep -oE 'id=[0-9a-f-]{36}' "${RAILWAY_UP_LOG}" | tail -n 1 | cut -d= -f2 || true)"
+          echo "RAILWAY_DEPLOY_SERVICE_ID=${RAILWAY_SERVICE_ID}" >> "$GITHUB_ENV"
+          echo "RAILWAY_DEPLOYMENT_ID=${DEPLOYMENT_ID}" >> "$GITHUB_ENV"
+
+      - name: Wait for Railway build
+        if: env.RAILWAY_DEPLOY_SERVICE_ID != ''
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          WAIT_FOR_DEPLOYMENT: "1"
+        run: scripts/railway-staging-diagnose.sh "${RAILWAY_DEPLOY_SERVICE_ID}" "${RAILWAY_DEPLOYMENT_ID}"
+
+      - name: Smoke staging URL
+        if: env.RAILWAY_DEPLOY_SERVICE_ID != ''
+        env:
+          DEPLOY_BASE_URL: ${{ secrets.DEPLOY_BASE_URL }}
+          STAGING_URL: ${{ secrets.STAGING_URL }}
+        run: scripts/verify-railway-staging-after-deploy.sh
+
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "## Railway deploy (aiuniverse.rsvp)"
+            echo ""
+            echo "Post-deploy probe uses \`DEPLOY_BASE_URL\` secret, else \`STAGING_URL\` secret, else \`scripts/railway-staging-url.env\`."
+            echo "No \`vercel.json\` crons — scheduled jobs not required for this app."
+          } >> "$GITHUB_STEP_SUMMARY"
