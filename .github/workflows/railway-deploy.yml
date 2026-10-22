@@ -1,0 +1,28 @@
+name: Deploy to Railway
+
+# aiuniverse.rsvp on Railway (project aiu-web, service e9700482-a1da-40ad-a870-69fb1bb62d66).
+# Secret: RAILWAY_TOKEN (project token for aiu-web / production).
+# Project tokens authenticate through RAILWAY_TOKEN + `railway up` only; do not run `railway link`.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [railway/standalone-docker]
+
+concurrency:
+  group: railway-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli@4.10.0 --no-audit --no-fund
+      - name: Deploy
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        # --detach: the build is followed on Railway; log streaming fails in CI.
+        run: railway up --service e9700482-a1da-40ad-a870-69fb1bb62d66 --detach
