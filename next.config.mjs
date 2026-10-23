@@ -1,5 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Self-contained server build (.next/standalone) for the Docker image on Railway.
+  output: 'standalone',
   async headers() {
     return [
       {

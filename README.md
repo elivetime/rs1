@@ -19,14 +19,14 @@ Investor meeting site for AIUniverse.one.
 ## Setup
 
 1. **Database.** Run `supabase/migrations/20261007000000_meeting_requests.sql` in the Supabase SQL editor of the project you want to use. RLS is on with no policies; only the server (service role key) can read or write.
-2. **Vercel project.** Import this repo, framework Next.js, root directory `/`. Add the env vars from `.env.example`:
+2. **Hosting.** The site runs as a Docker container on Railway (`Dockerfile`, `railway.json`). Create a Railway service from this repo and add the variables from `.env.example`:
    - `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`
    - `ADMIN_PASSWORD`, `ADMIN_SESSION_SECRET` (32+ random characters)
    - `SITE_URL=https://aiuniverse.rsvp`
    - Optional email: `RESEND_API_KEY`, `FROM_EMAIL`, `NOTIFY_EMAIL` (verify the sending domain in Resend first)
    - Optional hours: `BOOKING_TIMEZONE`, `BOOKING_DAY_START`, `BOOKING_DAY_END`, `BOOKING_SLOT_MINUTES`, `BOOKING_DAYS_AHEAD`
    - `PITCH_VIDEO_URL`: a direct `.mp4`/`.webm` URL plays inline. Any other URL is embedded in an iframe with a "Watch on LiveVideo" fallback link, which only works if that site allows embedding.
-3. **Domain.** Add `aiuniverse.rsvp` (and `www`) to the Vercel project and point DNS at Vercel.
+3. **Domain.** `aiuniverse.rsvp` (and `www`) are DNS records on Cloudflare pointing at the Railway hostname. The full cutover and rollback procedure is in [docs/RAILWAY.md](docs/RAILWAY.md).
 
 ## Develop
 
@@ -35,6 +35,13 @@ npm install
 cp .env.example .env.local   # fill in values
 npm run dev
 npm run typecheck && npm run build
+```
+
+To test the production image locally:
+
+```bash
+docker build -t aiuniverse-rsvp .
+docker run --rm -p 3000:3000 --env-file .env.local aiuniverse-rsvp
 ```
 
 ## Editing the pitch
