@@ -47,6 +47,7 @@ Workflow: [`.github/workflows/railway-deploy.yml`](../.github/workflows/railway-
 | `STAGING_URL` | Optional override for post-deploy HTTP probe |
 
 Each run: `npm ci` → typecheck → build → optional Vercel env sync → `railway up` → wait → HTTP 200 on `/`.
+The recurring sync skips `SITE_URL` and all `SUPABASE_*` variables so Railway's staging URL and database configuration remain authoritative.
 
 ## Crons
 

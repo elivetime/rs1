@@ -8,6 +8,8 @@ import { parseEnv } from "node:util";
 
 const API = "https://backboard.railway.com/graphql/v2";
 const PLATFORM_PREFIXES = ["VERCEL_", "TURBO_", "NX_"];
+const RAILWAY_OWNED_PREFIXES = ["SUPABASE_"];
+const RAILWAY_OWNED_KEYS = new Set(["SITE_URL"]);
 
 const [envFile, serviceId] = process.argv.slice(2);
 const token = process.env.RAILWAY_TOKEN;
@@ -34,8 +36,13 @@ const isPlatformKey = (key) => PLATFORM_PREFIXES.some((p) => key.startsWith(p));
 const parsed = parseEnv(readFileSync(envFile, "utf8"));
 const variables = {};
 const skippedEmpty = [];
+const skippedRailwayOwned = [];
 for (const [key, value] of Object.entries(parsed)) {
   if (isPlatformKey(key)) continue;
+  if (RAILWAY_OWNED_KEYS.has(key) || RAILWAY_OWNED_PREFIXES.some((p) => key.startsWith(p))) {
+    skippedRailwayOwned.push(key);
+    continue;
+  }
   if (value === "") {
     skippedEmpty.push(key);
     continue;
@@ -52,3 +59,4 @@ await gql(
 );
 console.log(`Upserted ${Object.keys(variables).length} variables to Railway service ${serviceId}.`);
 if (skippedEmpty.length) console.log(`Skipped empty (sensitive on Vercel): ${skippedEmpty.join(", ")}`);
+if (skippedRailwayOwned.length) console.log(`Skipped Railway-owned variables: ${skippedRailwayOwned.join(", ")}`);
