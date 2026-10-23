@@ -39,15 +39,16 @@ Workflow: [`.github/workflows/railway-deploy.yml`](../.github/workflows/railway-
 | `RAILWAY_TOKEN` | Project deploy token |
 | `RAILWAY_PROJECT_ID` | Railway project UUID |
 | `RAILWAY_SERVICE_ID` | Next.js web service UUID |
-| `VERCEL_TOKEN` | Optional — sync production env before deploy |
+| `VERCEL_TOKEN` | Optional — one-time bootstrap of Railway variables from Vercel production |
 | `VERCEL_PROJECT_ID` | Vercel project id for production (`rs1-mdc2`) |
 | `VERCEL_PROJECT_NAME` | Optional; defaults to `rs1-mdc2` for `vercel link` |
 | `VERCEL_ORG_ID` | Optional; defaults to `team_JkGZoOPYOANaDwHjcm97F8R1` |
 | `DEPLOY_BASE_URL` | After Cloudflare cutover: `https://aiuniverse.rsvp` |
 | `STAGING_URL` | Optional override for post-deploy HTTP probe |
 
-Each run: `npm ci` → typecheck → build → optional Vercel env sync → `railway up` → wait → HTTP 200 on `/`.
-The recurring sync skips `SITE_URL` and all `SUPABASE_*` variables so Railway's staging URL and database configuration remain authoritative.
+Each run: `npm ci` → typecheck → build → `railway up` → wait → HTTP 200 on `/`.
+For the one-time env bootstrap, manually run the workflow with **Bootstrap Railway env from Vercel production** enabled. Do not enable it for routine deployments: it overwrites matching Railway variables with Vercel values.
+The bootstrap skips `SITE_URL` and all `SUPABASE_*` variables so Railway's staging URL and database configuration remain authoritative.
 
 ## Crons
 

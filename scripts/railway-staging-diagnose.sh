@@ -27,6 +27,11 @@ if [ -z "$PROJECT_ID" ] || [ -z "$ENV_ID" ]; then
 fi
 echo "Token scope: project ${PROJECT_ID} environment ${ENV_ID}"
 
+if [ "${WAIT_FOR_DEPLOYMENT:-0}" = "1" ] && [ -z "$DEPLOYMENT_ID" ]; then
+  echo "::error::Cannot wait for Railway deployment: deployment ID is missing."
+  exit 1
+fi
+
 rc=0
 if [ "${WAIT_FOR_DEPLOYMENT:-0}" = "1" ] && [ -n "$DEPLOYMENT_ID" ]; then
   deadline=$(( $(date +%s) + ${WAIT_TIMEOUT_SECONDS:-1080} ))

@@ -2,11 +2,17 @@ name: Deploy aiuniverse.rsvp to Railway
 
 # Modeled on elivetime/ai-stream-clips railway-deploy.yml (simplified for root Next 15 app).
 # Secrets: RAILWAY_TOKEN, RAILWAY_PROJECT_ID, RAILWAY_SERVICE_ID (Next web service UUID).
-# Optional: VERCEL_TOKEN + VERCEL_ORG_ID + VERCEL_PROJECT_ID to sync production env before deploy.
+# Optional: VERCEL_TOKEN + VERCEL_ORG_ID + VERCEL_PROJECT_ID for the one-time env bootstrap.
 # Optional: DEPLOY_BASE_URL (https://aiuniverse.rsvp after Cloudflare origin cutover).
 
 on:
   workflow_dispatch:
+    inputs:
+      bootstrap_vercel_env:
+        description: One-time bootstrap of Railway variables from Vercel production
+        required: false
+        type: boolean
+        default: false
   push:
     branches: [main]
     paths:
@@ -16,6 +22,9 @@ on:
       - "package-lock.json"
       - "next.config.mjs"
       - "railway.toml"
+      - "scripts/railway-staging-url.env"
+      - "scripts/railway-staging-diagnose.sh"
+      - "scripts/railway-sync-vercel-env.mjs"
       - "scripts/verify-railway-staging-after-deploy.sh"
       - ".github/workflows/railway-deploy.yml"
 
@@ -47,7 +56,8 @@ jobs:
       - name: Install CLIs
         run: npm install -g vercel@59.1.3 @railway/cli@4.10.0 --no-audit --no-fund
 
-      - name: Sync Vercel production env to Railway
+      - name: Bootstrap Railway env from Vercel production
+        if: github.event_name == 'workflow_dispatch' && inputs.bootstrap_vercel_env
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
