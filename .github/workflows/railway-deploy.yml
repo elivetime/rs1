@@ -28,6 +28,9 @@ on:
       - "scripts/verify-railway-staging-after-deploy.sh"
       - ".github/workflows/railway-deploy.yml"
 
+permissions:
+  contents: read
+
 concurrency:
   group: railway-deploy-rs1
   cancel-in-progress: true
