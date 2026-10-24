@@ -141,8 +141,10 @@ then repeat the restore and the comparison.
    `rs1-production-xxxx.up.railway.app`. This is the origin Cloudflare will point
    at.
 5. Settings → Networking → Custom Domain: add `aiuniverse.rsvp` and
-   `www.aiuniverse.rsvp`. Railway shows the CNAME target it expects for each; it is
-   the same Railway hostname. Leave the Cloudflare side alone for now.
+   `www.aiuniverse.rsvp`. For each domain Railway shows a **CNAME and a TXT**
+   record. Both are required: with only the CNAME in place the domain stays
+   unverified and returns 404, even when the CNAME resolves. Note both records for
+   step 5. Leave the Cloudflare side alone for now.
 
 ## 4. Verify on the Railway hostname before touching DNS
 
@@ -187,9 +189,12 @@ final data copy and the DNS change.
      CNAME at the apex). If the record was an `A` record, delete it and add the
      CNAME.
    - Edit `www` to `CNAME www <railway-hostname>`.
+   - Add the **TXT** verification record Railway shows for each domain (section 3, item 5).
+     Railway does not verify a domain from the CNAME alone.
    - Keep both **Proxied** (orange cloud).
-   - SSL/TLS → Overview must be **Full (strict)**. Railway issues its own
-     certificate for the custom domain once it sees the CNAME.
+   - SSL/TLS → Overview must be **Full**, not Full (strict). Railway's docs say
+     Full (Strict) does not work as intended with its origin. Railway issues its
+     own certificate for the custom domain once the CNAME and TXT records resolve.
 3. Wait for Railway → Custom Domains to show both domains as verified with a
    certificate (usually a minute or two behind Cloudflare).
 4. Re-run the step 4 `curl` checks against `https://aiuniverse.rsvp` and
